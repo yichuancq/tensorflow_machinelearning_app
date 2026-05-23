@@ -1,0 +1,40 @@
+{
+  "album": {
+    "其他": [
+      {
+        "path": "./my_photos\\coat.jpg",
+        "name": "coat.jpg",
+        "top_pred": "gown",
+        "score": 0.63
+      },
+      {
+        "path": "./my_photos\\dress.jpg",
+        "name": "dress.jpg",
+        "top_pred": "abaya",
+        "score": 0.52
+      }
+    ]
+  },
+  "search_index": [
+    {
+      "path": "./my_photos\\coat.jpg",
+      "labels": [
+        "gown",
+        "maillot",
+        "maillot",
+        "overskirt",
+        "hoopskirt"
+      ]
+    },
+    {
+      "path": "./my_photos\\dress.jpg",
+      "labels": [
+        "abaya",
+        "loafer",
+        "miniskirt",
+        "stole",
+        "velvet"
+      ]
+    }
+  ]
+}
