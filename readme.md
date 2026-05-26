@@ -1,85 +1,218 @@
-# TensorFlow 机器学习应用
+# TensorFlow 机器学习应用项目
 
-### TensorFlow 电商商品自动打标 + 以图搜图
+基于 TensorFlow 的机器学习应用集合，包含商品推荐系统、目标检测、人脸识别、智能相册等功能。
 
----
-
-## 代码逻辑说明
-
-### 1. 核心架构
-本项目使用 **MobileNetV2** 预训练模型实现两个功能：
-- **特征提取模型** (`base_model`)：去除了分类层，输出 1280 维特征向量，用于以图搜图
-- **分类模型** (`classify_model`)：完整模型，用于 ImageNet 1000 类分类
-
-### 2. 主要流程
+## 项目结构
 
 ```
-商品图片 → 图片预处理(224x224) → MobileNetV2特征提取 → 商品库索引
-                                                    ↓
-查询图片 → 特征提取 → 余弦相似度计算 → 返回Top-N相似商品
+tensorflow_machinelearning_app/
+├── my_photos/                  # 测试图片目录
+│   ├── coat.jpg
+│   └── dress.jpg
+├── shop_products/              # 商品图片目录
+│   ├── coat.jpg
+│   └── dress.jpg
+├── 人脸聚类/                    # 人脸聚类模块
+│   ├── face.py
+│   ├── face2.py
+│   └── 人脸聚类.md
+├── 推荐系统/                    # 商品推荐系统
+│   ├── recommender.py
+│   ├── recommendation_service.py
+│   └── 推荐系统.md
+├── 智能相册/                    # 智能相册（以图搜图）
+│   └── product_search2.py
+├── 目标检测/                    # 目标检测模块
+│   ├── models/
+│   │   └── yolo/
+│   │       └── yolov3.cfg
+│   ├── __init__.py
+│   ├── object_detection.py
+│   ├── readme.md
+│   ├── test_detection.py
+│   └── tflite_detector.py
+├── album_index.json            # 相册索引
+├── product_index.json          # 商品索引
+└── readme.md                   # 项目总览
 ```
 
-### 3. 关键函数
+## 功能模块
 
-| 函数 | 功能 |
-|------|------|
-| `load_and_preprocess()` | 加载图片并缩放到 224x224，执行 MobileNetV2 预处理 |
-| `extract_feature()` | 提取图片的 1280 维特征向量 |
-| `auto_tag_product()` | 获取 ImageNet Top-5 预测结果，匹配商品类别标签 |
-| `build_product_database()` | 遍历商品文件夹，构建商品索引库 (JSON) |
-| `search_similar_product()` | 计算余弦相似度，返回最相似商品 |
+### 1. 商品推荐系统
 
-### 4. 相似度计算
-使用 **余弦相似度**：`sim = dot(q_feat, feat) / (||q_feat|| * ||feat||)`
+**位置**: `推荐系统/`
 
----
+**功能描述**:
+- 基于神经协同过滤（Neural Collaborative Filtering）的商品推荐模型
+- 结合 GMF（广义矩阵分解）和 MLP（多层感知器）
+- 支持用户行为数据训练和基于图像特征的相似商品推荐
 
-## TensorFlow 开发注意事项
+**核心组件**:
+- `ProductRecommender`: 协同过滤推荐模型
+- `ProductFeatureExtractor`: 基于 MobileNetV2 的图像特征提取器
+- `RecommendationService`: 推荐服务封装，提供 REST API
 
-### 1. Windows GPU 支持
-```
-⚠️ 警告：TensorFlow >= 2.11 在原生 Windows 上不支持 GPU 加速
-即使安装了 CUDA/cuDNN，GPU 也不会被使用。
-解决方案：
-- 推荐：使用 WSL2 (Windows Subsystem for Linux)
-- 替代方案：安装 TensorFlow-DirectML 插件
-```
-
-### 2. 模型加载
-- `weights="imagenet"`：首次运行会自动下载预训练权重
-- `include_top=False`：不包含原始分类层，自定义 pooling
-- `pooling="avg"`：输出全局平均池化后的特征向量
-
-### 3. 图片预处理
-必须使用对应的 `preprocess_input()`，MobileNetV2 使用的是 `(-1, 1)` 范围的标准化。
-
-### 4. 预测解码
+**使用方法**:
 ```python
-decode_predictions(preds, top=5)  # 返回 [(class_id, label, score), ...]
+from recommendation_service import RecommendationService
+
+service = RecommendationService()
+service.load_products()
+service.init_recommender(num_users=100, num_products=50)
+
+# 训练模型
+service.train_recommender(user_ids, product_ids, ratings, epochs=10)
+
+# 获取推荐
+recommendations = service.get_recommendations(user_id=0, top_k=5)
 ```
 
-### 5. 商品标签匹配逻辑
-- 将 ImageNet 标签（如 `fur_coat`）与关键词列表进行子串匹配
-- 匹配到则添加对应商品类别，最多返回 3 个标签
+**详细文档**: [推荐系统.md](推荐系统/推荐系统.md)
 
 ---
 
-## 运行示例
+### 2. 目标检测
 
-```text
-       TensorFlow 电商商品自动打标 + 以图搜图
-==================================================
-正在构建商品索引...
-处理：coat.jpg
-【模型识别】: ['fur_coat', 'wool', 'cardigan', 'velvet', 'sweatshirt']
-处理：dress.jpg
-【模型识别】: ['hoopskirt', 'Windsor_tie', 'overskirt', 'apron', 'gown']
+**位置**: `目标检测/`
 
-✅ 商品库构建完成！共 2 个商品
+**功能描述**:
+- 基于 TensorFlow 和 OpenCV DNN 的目标检测模块
+- 支持多种预训练模型格式（YOLO、TensorFlow Lite、Caffe、ONNX）
+- COCO 80类目标检测，支持批量处理和结果可视化
 
-===== 以图搜图测试 =====
+**核心特性**:
+- 多框架支持：OpenCV DNN、TensorFlow Lite
+- 多模型格式：YOLOv3、EfficientDet-Lite0
+- 自动绘制检测框和标签
+- 支持批量检测整个目录
 
-🔍 搜索结果（Top 5）：
-1. coat.jpg | 标签：['衣服'] | 相似度：1.0
-2. dress.jpg | 标签：['衣服'] | 相似度：0.36
+**使用方法**:
+```python
+from 目标检测 import object_detection
+
+# 单张图片检测
+detections = object_detection.detect_objects("image.jpg", threshold=0.5)
+
+# 批量检测
+results = object_detection.detect_batch("input_dir/", output_dir="output/")
 ```
+
+**详细文档**: [目标检测/readme.md](目标检测/readme.md)
+
+---
+
+### 3. 人脸聚类
+
+**位置**: `人脸聚类/`
+
+**功能描述**:
+- 基于深度学习的人脸聚类功能
+- 支持人脸检测、特征提取和聚类分析
+- 可用于相册人脸分组、人脸搜索等场景
+
+**核心文件**:
+- `face.py`: 人脸检测和特征提取
+- `face2.py`: 人脸聚类算法实现
+
+**详细文档**: [人脸聚类/人脸聚类.md](人脸聚类/人脸聚类.md)
+
+---
+
+### 4. 智能相册（以图搜图）
+
+**位置**: `智能相册/`
+
+**功能描述**:
+- 基于 MobileNetV2 预训练模型实现商品自动打标 + 以图搜图
+- 1280维特征向量提取，余弦相似度匹配
+- 自动识别商品类别标签
+
+**核心功能**:
+- `extract_feature()`: 提取图片特征向量
+- `auto_tag_product()`: 自动生成商品标签
+- `search_similar_product()`: 以图搜图，返回相似商品
+- `build_product_database()`: 构建商品索引库
+
+**使用方法**:
+```python
+from 智能相册.product_search2 import build_product_database, search_similar_product
+
+# 构建商品索引
+build_product_database()
+
+# 搜索相似商品
+results = search_similar_product("query.jpg", top_n=5)
+```
+
+---
+
+## 环境要求
+
+### 基础依赖
+```bash
+pip install tensorflow opencv-python pillow numpy flask
+```
+
+### 版本要求
+- Python >= 3.8
+- TensorFlow >= 2.0
+
+### 可选依赖
+```bash
+# Flask（用于推荐系统API）
+pip install flask
+```
+
+## 快速开始
+
+### 1. 推荐系统
+```bash
+cd 推荐系统
+python recommendation_service.py
+```
+
+### 2. 目标检测
+```bash
+cd 目标检测
+python test_detection.py
+```
+
+### 3. 智能相册
+```bash
+cd 智能相册
+python product_search2.py
+```
+
+## 模型下载说明
+
+### YOLOv3 模型（目标检测）
+1. 下载权重: https://pjreddie.com/media/files/yolov3.weights
+2. 保存到: `目标检测/models/yolo/yolov3.weights`
+
+### EfficientDet-Lite0（目标检测）
+1. 下载: https://tfhub.dev/tensorflow/lite-model/efficientdet/lite0/int8/2
+2. 保存到: `目标检测/models/efficientdet_lite0.tflite`
+
+### MobileNetV2（推荐系统、智能相册）
+- 首次运行自动下载预训练权重
+- weights="imagenet"
+
+## 技术栈
+
+| 模块 | 框架/模型 | 用途 |
+|------|-----------|------|
+| 推荐系统 | TensorFlow/Keras, MobileNetV2 | 协同过滤、图像特征提取 |
+| 目标检测 | TensorFlow Lite, OpenCV DNN, YOLOv3 | 多框架目标检测 |
+| 人脸聚类 | TensorFlow | 人脸检测和聚类 |
+| 智能相册 | MobileNetV2 | 特征提取、以图搜图 |
+
+## 注意事项
+
+1. **Windows GPU 支持**: TensorFlow >= 2.11 在原生 Windows 上不支持 GPU 加速，建议使用 WSL2
+2. **模型文件**: 部分模型文件较大，首次使用需要下载
+3. **图片格式**: 支持 JPG、PNG 格式，建议尺寸 224x224
+4. **数据准备**: 运行前请确保图片目录存在并包含测试图片
+
+## 许可证
+
+本项目仅供学习研究使用。
